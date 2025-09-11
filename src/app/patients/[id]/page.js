@@ -1,203 +1,175 @@
 "use client";
+
+import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect } from "react";
 import Sidebar from "../../../components/Sidebar";
 
 export default function PatientProfile() {
+  const params = useParams();
   const router = useRouter();
-  const { id } = useParams();
   const searchParams = useSearchParams();
-  const mode = searchParams.get("mode") || "view"; // default is "view"
+  const modeQuery = searchParams?.get("mode") || "view";
+  const id = params?.id;
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [patient, setPatient] = useState(null);
+  const [editData, setEditData] = useState(null);
+  const [mode, setMode] = useState(modeQuery);
 
-  // ✅ Load patient from localStorage
+  // load patient on mount (from localStorage)
   useEffect(() => {
-    const storedPatients = JSON.parse(localStorage.getItem("patients")) || [];
-    const found = storedPatients.find((p) => p.id === id);
-    if (found) {
-      setPatient(found);
+    const raw = localStorage.getItem("patients");
+    const arr = raw ? JSON.parse(raw) : [];
+    const found = arr.find((p) => p.id === id);
+    if (!found) {
+      router.push("/patients");
+      return;
     }
-  }, [id]);
+    setPatient(found);
+    setEditData({ ...found });
+  }, [id, router]);
 
+  useEffect(() => {
+    setMode(modeQuery);
+  }, [modeQuery]);
+
+  // input change
   const handleChange = (e) => {
-    if (mode === "view") return; // block editing in view mode
-    const { name, value } = e.target;
-    setPatient({ ...patient, [name]: value });
+    setEditData({ ...editData, [e.target.name]: e.target.value });
   };
 
+  // helper to write and notify
+  const writePatients = (arr) => {
+    localStorage.setItem("patients", JSON.stringify(arr));
+    window.dispatchEvent(new Event("patientsUpdated"));
+  };
+
+  // Save edits (immediate write + notify)
   const handleSave = () => {
-    if (!patient) return;
+    const raw = localStorage.getItem("patients");
+    const arr = raw ? JSON.parse(raw) : [];
+    const updated = arr.map((p) => (p.id === id ? editData : p));
+    writePatients(updated);
+    // keep UI consistent then go back to list
+    router.push("/patients");
+  };
 
-    const storedPatients = JSON.parse(localStorage.getItem("patients")) || [];
-    const updatedPatients = storedPatients.map((p) =>
-      p.id === patient.id ? patient : p
-    );
-    localStorage.setItem("patients", JSON.stringify(updatedPatients));
-
-    alert("Patient details updated ✅");
+  // Delete
+  const handleDelete = () => {
+    if (!confirm("Delete this patient?")) return;
+    const raw = localStorage.getItem("patients");
+    const arr = raw ? JSON.parse(raw) : [];
+    const updated = arr.filter((p) => p.id !== id);
+    writePatients(updated);
     router.push("/patients");
   };
 
   if (!patient) {
     return (
-      <div className="h-screen flex items-center justify-center text-blue-600">
-        Loading patient...
+      <div className="flex h-screen">
+        <Sidebar open={sidebarOpen} setOpen={setSidebarOpen} />
+        <main className="flex-1 flex items-center justify-center">
+          <p className="text-slate-500">Loading patient...</p>
+        </main>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen bg-gray-100">
-      {/* Sidebar */}
+    <div className="flex h-screen bg-gray-50">
       <Sidebar open={sidebarOpen} setOpen={setSidebarOpen} />
 
-      {/* Main Content */}
       <main className="flex-1 p-6 overflow-y-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-xl font-bold text-blue-700">
-            Patient Profile - {patient.name}
-          </h1>
-          <button
-            onClick={() => router.push("/patients")}
-            className="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400"
-          >
-            ← Back to Patients
-          </button>
-        </div>
-
-        {/* Patient Details */}
-        <div className="bg-white p-6 rounded-xl shadow-md max-w-2xl">
-          <form className="space-y-4">
-            {/* Name */}
+        <div className="max-w-4xl mx-auto">
+          <div className="flex items-center justify-between mb-6">
             <div>
-              <label className="block text-sm font-medium">Full Name</label>
-              <input
-                type="text"
-                name="name"
-                value={patient.name}
-                onChange={handleChange}
-                disabled={mode === "view"}
-                className="w-full border rounded-lg px-3 py-2 disabled:bg-gray-100"
-              />
+              <h1 className="text-2xl font-semibold text-slate-800">Patient Profile</h1>
+              <p className="text-sm text-slate-500">{patient.name}</p>
             </div>
 
-            {/* Email */}
-            <div>
-              <label className="block text-sm font-medium">Email</label>
-              <input
-                type="email"
-                name="email"
-                value={patient.email || ""}
-                onChange={handleChange}
-                disabled={mode === "view"}
-                className="w-full border rounded-lg px-3 py-2 disabled:bg-gray-100"
-              />
-            </div>
+            <div className="flex gap-2">
+              <button onClick={() => router.push("/patients")} className="px-3 py-2 border rounded-md">Back</button>
 
-            {/* Phone */}
-            <div>
-              <label className="block text-sm font-medium">Phone</label>
-              <input
-                type="text"
-                name="phone"
-                value={patient.phone}
-                onChange={handleChange}
-                disabled={mode === "view"}
-                className="w-full border rounded-lg px-3 py-2 disabled:bg-gray-100"
-              />
+              {mode === "view" ? (
+                <>
+                  <button onClick={() => router.push(`/patients/${id}?mode=edit`)} className="px-3 py-2 bg-yellow-100 text-yellow-700 rounded-md">Edit</button>
+                  <button onClick={handleDelete} className="px-3 py-2 bg-red-50 text-red-700 rounded-md">Delete</button>
+                </>
+              ) : (
+                <button onClick={handleSave} className="px-3 py-2 bg-green-600 text-white rounded-md">Save</button>
+              )}
             </div>
+          </div>
 
-            {/* DOB */}
-            <div>
-              <label className="block text-sm font-medium">Date of Birth</label>
-              <input
-                type="date"
-                name="dob"
-                value={patient.dob || ""}
-                onChange={handleChange}
-                disabled={mode === "view"}
-                className="w-full border rounded-lg px-3 py-2 disabled:bg-gray-100"
-              />
-            </div>
+          <div className="bg-white rounded-xl shadow p-6">
+            {mode === "view" ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <p className="text-sm font-medium">Full Name</p>
+                  <p className="text-slate-700">{patient.name}</p>
 
-            {/* Gender */}
-            <div>
-              <label className="block text-sm font-medium">Gender</label>
-              <select
-                name="gender"
-                value={patient.gender}
-                onChange={handleChange}
-                disabled={mode === "view"}
-                className="w-full border rounded-lg px-3 py-2 disabled:bg-gray-100"
-              >
-                <option>Male</option>
-                <option>Female</option>
-                <option>Other</option>
-              </select>
-            </div>
+                  <p className="text-sm font-medium mt-4">Email</p>
+                  <p className="text-slate-700">{patient.email || "-"}</p>
 
-            {/* Address */}
-            <div>
-              <label className="block text-sm font-medium">Address</label>
-              <textarea
-                name="address"
-                value={patient.address || ""}
-                onChange={handleChange}
-                disabled={mode === "view"}
-                className="w-full border rounded-lg px-3 py-2 disabled:bg-gray-100"
-              />
-            </div>
+                  <p className="text-sm font-medium mt-4">Phone</p>
+                  <p className="text-slate-700">{patient.phone}</p>
 
-            {/* Blood Group */}
-            <div>
-              <label className="block text-sm font-medium">Blood Group</label>
-              <select
-                name="bloodGroup"
-                value={patient.bloodGroup || ""}
-                onChange={handleChange}
-                disabled={mode === "view"}
-                className="w-full border rounded-lg px-3 py-2 disabled:bg-gray-100"
-              >
-                <option>A+</option>
-                <option>A-</option>
-                <option>B+</option>
-                <option>B-</option>
-                <option>O+</option>
-                <option>O-</option>
-                <option>AB+</option>
-                <option>AB-</option>
-              </select>
-            </div>
+                  <p className="text-sm font-medium mt-4">DOB</p>
+                  <p className="text-slate-700">{patient.dob || "-"}</p>
+                </div>
 
-            {/* Allergies */}
-            <div>
-              <label className="block text-sm font-medium">Allergies</label>
-              <input
-                type="text"
-                name="allergies"
-                value={patient.allergies || ""}
-                onChange={handleChange}
-                disabled={mode === "view"}
-                className="w-full border rounded-lg px-3 py-2 disabled:bg-gray-100"
-              />
-            </div>
+                <div>
+                  <p className="text-sm font-medium">Gender</p>
+                  <p className="text-slate-700">{patient.gender || "-"}</p>
 
-            {/* Save Button */}
-            {mode === "edit" && (
-              <div className="flex justify-end gap-3 mt-4">
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  Save Changes
-                </button>
+                  <p className="text-sm font-medium mt-4">Address</p>
+                  <p className="text-slate-700">{patient.address || "-"}</p>
+
+                  <p className="text-sm font-medium mt-4">Blood Group</p>
+                  <p className="text-slate-700">{patient.bloodGroup || "-"}</p>
+
+                  <p className="text-sm font-medium mt-4">Allergies</p>
+                  <p className="text-slate-700">{patient.allergies || "-"}</p>
+                </div>
               </div>
+            ) : (
+              <form className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium">Full Name</label>
+                  <input name="name" className="w-full border rounded px-3 py-2" value={editData.name} onChange={handleChange} />
+
+                  <label className="block text-sm font-medium mt-3">Email</label>
+                  <input name="email" type="email" className="w-full border rounded px-3 py-2" value={editData.email || ""} onChange={handleChange} />
+
+                  <label className="block text-sm font-medium mt-3">Phone</label>
+                  <input name="phone" className="w-full border rounded px-3 py-2" value={editData.phone || ""} onChange={handleChange} />
+
+                  <label className="block text-sm font-medium mt-3">Date of Birth</label>
+                  <input name="dob" type="date" className="w-full border rounded px-3 py-2" value={editData.dob || ""} onChange={handleChange} />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium">Gender</label>
+                  <select name="gender" className="w-full border rounded px-3 py-2" value={editData.gender || ""} onChange={handleChange}>
+                    <option value="">Select</option>
+                    <option>Male</option><option>Female</option><option>Other</option>
+                  </select>
+
+                  <label className="block text-sm font-medium mt-3">Address</label>
+                  <textarea name="address" className="w-full border rounded px-3 py-2" value={editData.address || ""} onChange={handleChange} />
+
+                  <label className="block text-sm font-medium mt-3">Blood Group</label>
+                  <select name="bloodGroup" className="w-full border rounded px-3 py-2" value={editData.bloodGroup || ""} onChange={handleChange}>
+                    <option value="">Select</option>
+                    <option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>O+</option><option>O-</option><option>AB+</option><option>AB-</option>
+                  </select>
+
+                  <label className="block text-sm font-medium mt-3">Allergies</label>
+                  <input name="allergies" className="w-full border rounded px-3 py-2" value={editData.allergies || ""} onChange={handleChange} />
+                </div>
+              </form>
             )}
-          </form>
+          </div>
         </div>
       </main>
     </div>
