@@ -4,263 +4,218 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "../../components/Sidebar";
 
+/* Utilities */
+const generatePatientId = (existing = []) => {
+  // create an id not present in existing
+  let id;
+  do {
+    id = "P" + Math.floor(1000 + Math.random() * 9000);
+  } while (existing.some((p) => p.id === id));
+  return id;
+};
+
 export default function PatientsPage() {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  // default sample data (used only if localStorage empty)
-  const defaultPatients = [
-    {
-      id: "P1001",
-      name: "James Smith",
-      phone: "9876543210",
-      gender: "Male",
-      dob: "1985-06-15",
-      bloodGroup: "A+",
-      email: "james@example.com",
-    },
-    {
-      id: "P1002",
-      name: "Sarah Lee",
-      phone: "9123456780",
-      gender: "Female",
-      dob: "1992-03-22",
-      bloodGroup: "B+",
-      email: "sarah@example.com",
-    },
-    {
-      id: "P1003",
-      name: "Arjun Mehta",
-      phone: "9988776655",
-      gender: "Male",
-      dob: "1999-12-05",
-      bloodGroup: "O-",
-      email: "arjun@example.com",
-    },
-  ];
-
-  // state
   const [patients, setPatients] = useState([]);
   const [search, setSearch] = useState("");
-  const [filterGender, setFilterGender] = useState("");
-  const [filterBlood, setFilterBlood] = useState("");
-  const [filterAge, setFilterAge] = useState("");
 
-  // drawer state + animation
+  // Drawer (Add patient) state
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [drawerAnim, setDrawerAnim] = useState(""); // "in" | "out" | ""
+  const [drawerAnimating, setDrawerAnimating] = useState(false);
 
-  // add form
+  // Filters modal
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [filters, setFilters] = useState({
+    gender: "all",
+    age: "all",
+    status: "all",
+  });
+
+  // New patient form
   const [newPatient, setNewPatient] = useState({
     name: "",
     email: "",
     phone: "",
     dob: "",
+    age: "",
     gender: "",
     address: "",
-    bloodGroup: "",
-    allergies: "",
   });
 
-  // ---- Load from localStorage on mount (or initialize) ----
+  // --- Load patients, normalize missing 'active' field ---
   useEffect(() => {
     const raw = localStorage.getItem("patients");
     if (raw) {
       try {
-        setPatients(JSON.parse(raw));
-      } catch {
-        setPatients(defaultPatients);
-        localStorage.setItem("patients", JSON.stringify(defaultPatients));
+        const parsed = JSON.parse(raw);
+        // normalize: ensure active present and age calculated if missing
+        const normalized = parsed.map((p) => {
+          const copy = { ...p };
+          if (typeof copy.active === "undefined") copy.active = true;
+          // ensure numeric age if present; else calc from dob
+          if ((!copy.age || copy.age === "") && copy.dob) {
+            const today = new Date();
+            const bd = new Date(copy.dob);
+            let age = today.getFullYear() - bd.getFullYear();
+            const m = today.getMonth() - bd.getMonth();
+            if (m < 0 || (m === 0 && today.getDate() < bd.getDate())) age--;
+            copy.age = age;
+          }
+          return copy;
+        });
+        setPatients(normalized);
+        // save back normalized
+        localStorage.setItem("patients", JSON.stringify(normalized));
+      } catch (err) {
+        console.error("Failed parsing patients:", err);
+        setPatients([]);
       }
     } else {
-      setPatients(defaultPatients);
-      localStorage.setItem("patients", JSON.stringify(defaultPatients));
+      // default demo data (ensures active = true)
+      const demo = [
+        { id: "P1001", name: "Ravindra Shardul", phone: "9322078972", gender: "Male", dob: "1990-01-01", age: 34, email: "", address: "", active: true },
+        { id: "P1002", name: "okok", phone: "857875585", gender: "Male", dob: "1992-02-02", age: 32, email: "", address: "", active: true },
+      ];
+      setPatients(demo);
+      localStorage.setItem("patients", JSON.stringify(demo));
     }
   }, []);
 
-  // listen to our custom event (fires in same tab) so list updates immediately
-  useEffect(() => {
-    const handler = () => {
-      const raw = localStorage.getItem("patients");
-      setPatients(raw ? JSON.parse(raw) : []);
-    };
-    window.addEventListener("patientsUpdated", handler);
-    return () => window.removeEventListener("patientsUpdated", handler);
-  }, []);
-
-  // also listen to real storage event (other tabs)
-  useEffect(() => {
-    const onStorage = (e) => {
-      if (e.key === "patients") {
-        setPatients(e.newValue ? JSON.parse(e.newValue) : []);
-      }
-    };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, []);
-
-  // ---- helpers ----
-  const generatePatientId = () => {
-    const max = patients.reduce((m, p) => {
-      const n = parseInt((p.id || "P1000").replace(/\D/g, ""), 10) || 1000;
-      return n > m ? n : m;
-    }, 1000);
-    return "P" + (max + 1);
-  };
-
-  const calcAge = (dob) => {
-    if (!dob) return null;
-    const diff = Date.now() - new Date(dob).getTime();
-    return new Date(diff).getUTCFullYear() - 1970;
-  };
-
-  // write + notify helper (always call this for persistence)
-  const writePatients = (arr) => {
-    localStorage.setItem("patients", JSON.stringify(arr));
-    // in same tab, dispatch event so other components update
-    window.dispatchEvent(new Event("patientsUpdated"));
-    // also update our state
+  // Persist helper (and notify)
+  const persistPatients = (arr) => {
     setPatients(arr);
+    localStorage.setItem("patients", JSON.stringify(arr));
+    // notify other components/pages
+    window.dispatchEvent(new Event("patientsUpdated"));
   };
 
-  // ---- Drawer open/close (with small animation) ----
+  // --- Drawer open/close with small animation hooks ---
   const openDrawer = () => {
     setIsDrawerOpen(true);
-    // allow DOM mount then animate
-    setTimeout(() => setDrawerAnim("in"), 20);
+    // start animation slightly after mount
+    setTimeout(() => setDrawerAnimating(true), 10);
   };
   const closeDrawer = () => {
-    setDrawerAnim("out");
+    setDrawerAnimating(false);
     setTimeout(() => {
       setIsDrawerOpen(false);
-      setDrawerAnim("");
       setNewPatient({
         name: "",
         email: "",
         phone: "",
         dob: "",
+        age: "",
         gender: "",
         address: "",
-        bloodGroup: "",
-        allergies: "",
       });
-    }, 420);
+    }, 300);
   };
 
-  // ---- Add patient (immediate localStorage write + notify) ----
+  // DOB change -> auto-calc age
+  const handleDobChange = (val) => {
+    const today = new Date();
+    const birthDate = new Date(val);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
+    setNewPatient((s) => ({ ...s, dob: val, age }));
+  };
+
+  // Validation for add form
+  const validateAdd = () => {
+    if (!newPatient.name || newPatient.name.trim().length === 0) return "Full name is required.";
+    if (!newPatient.phone || !/^\d{7,15}$/.test(newPatient.phone.trim())) return "Enter a valid phone number (digits only).";
+    if (!newPatient.dob) return "Date of birth is required.";
+    if (!newPatient.gender) return "Please select gender.";
+    return null;
+  };
+
+  // Add patient
   const handleAddPatient = (e) => {
     e.preventDefault();
-    if (!newPatient.name || !newPatient.phone || !newPatient.gender) {
-      alert("Please fill required fields: Name, Phone, Gender.");
+    const err = validateAdd();
+    if (err) {
+      alert(err);
       return;
     }
-    const withId = { ...newPatient, id: generatePatientId() };
-    const updated = [...patients, withId];
-    writePatients(updated); // immediate persistence and notify
+    const id = generatePatientId(patients);
+    const toAdd = { ...newPatient, id, active: true };
+    const updated = [...patients, toAdd];
+    persistPatients(updated);
     closeDrawer();
   };
 
-  // ---- Delete patient (persist immediately) ----
-  const handleDelete = (id) => {
-    if (!confirm("Delete this patient?")) return;
-    const updated = patients.filter((p) => p.id !== id);
-    writePatients(updated);
+  // Soft-remove: set active:false
+  const handleRemove = (id) => {
+    if (!confirm("Remove patient from active list? (Data will be retained)")) return;
+    const updated = patients.map((p) => (p.id === id ? { ...p, active: false } : p));
+    persistPatients(updated);
   };
 
-  // ---- Filtering & search ----
+  // Filtered list
   const filtered = patients.filter((p) => {
-    const q = search.trim().toLowerCase();
-    const matchSearch =
-      !q ||
-      p.name.toLowerCase().includes(q) ||
-      (p.id || "").toLowerCase().includes(q) ||
-      (p.phone || "").includes(q);
+    // status filter
+    if (filters.status === "active" && !p.active) return false;
+    if (filters.status === "removed" && p.active) return false;
 
-    const matchGender = !filterGender || p.gender === filterGender;
-    const matchBlood = !filterBlood || p.bloodGroup === filterBlood;
-
-    const age = calcAge(p.dob);
-    let matchAge = true;
-    if (filterAge) {
-      if (filterAge === "child") matchAge = age !== null && age < 18;
-      else if (filterAge === "adult") matchAge = age !== null && age >= 18 && age < 60;
-      else if (filterAge === "senior") matchAge = age !== null && age >= 60;
+    // search
+    if (search) {
+      const q = search.toLowerCase();
+      const match = (p.name || "").toLowerCase().includes(q) || (p.id || "").toLowerCase().includes(q) || (p.phone || "").includes(q);
+      if (!match) return false;
     }
 
-    return matchSearch && matchGender && matchBlood && matchAge;
+    // gender
+    if (filters.gender !== "all" && p.gender !== filters.gender) return false;
+
+    // age groups
+    if (filters.age !== "all") {
+      if (filters.age === "child" && !(p.age !== undefined && p.age < 13)) return false;
+      if (filters.age === "adult" && !(p.age !== undefined && p.age >= 13 && p.age < 60)) return false;
+      if (filters.age === "senior" && !(p.age !== undefined && p.age >= 60)) return false;
+    }
+
+    return true;
   });
 
-  // small inline icons
-  const IconView = () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path d="M12 5c5 0 9.27 3.11 11 7-1.73 3.89-6 7-11 7s-9.27-3.11-11-7c1.73-3.89 6-7 11-7z" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.3" />
-    </svg>
-  );
-
-  const IconEdit = () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path d="M3 21v-3l11-11 3 3L6 21H3z" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M14 7l3 3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  );
-
-  const IconDelete = () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path d="M21 6H8l-1 14h14L21 6z" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M18 6V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  );
+  // Clear all filters
+  const clearFilters = () => {
+    setFilters({ gender: "all", age: "all", status: "all" });
+  };
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-100">
       <Sidebar open={sidebarOpen} setOpen={setSidebarOpen} />
 
       <main className="flex-1 p-6 overflow-y-auto">
         {/* Header */}
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-2xl font-semibold text-slate-800">Patients</h1>
+            <h1 className="text-2xl font-semibold text-slate-900">Patients List</h1>
             <p className="text-sm text-slate-500">Manage walk-ins and registered patients</p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-3">
             <div className="relative">
               <input
-                aria-label="Search patients"
-                className="pl-10 pr-4 py-2 rounded-lg border-2 border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition w-72"
-                placeholder="Search by name, ID or phone..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by name, ID or phone..."
+                className="pl-10 pr-4 py-2 rounded-lg border-2 border-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 w-72"
               />
               <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-                  <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
                   <circle cx="11" cy="11" r="6" stroke="currentColor" strokeWidth="1.4" />
                 </svg>
               </div>
             </div>
 
-            <select value={filterGender} onChange={(e) => setFilterGender(e.target.value)} className="px-3 py-2 rounded-md border">
-              <option value="">All Genders</option>
-              <option>Male</option>
-              <option>Female</option>
-              <option>Other</option>
-            </select>
+            <button onClick={() => setIsFilterOpen(true)} className="px-3 py-2 bg-slate-100 rounded-md hover:bg-slate-200">Filters</button>
 
-            <select value={filterAge} onChange={(e) => setFilterAge(e.target.value)} className="px-3 py-2 rounded-md border">
-              <option value="">All Ages</option>
-              <option value="child">Child (&lt;18)</option>
-              <option value="adult">Adult (18–59)</option>
-              <option value="senior">Senior (60+)</option>
-            </select>
-
-            <select value={filterBlood} onChange={(e) => setFilterBlood(e.target.value)} className="px-3 py-2 rounded-md border">
-              <option value="">All Blood</option>
-              <option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>O+</option><option>O-</option><option>AB+</option><option>AB-</option>
-            </select>
-
-            <button onClick={openDrawer} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-shadow shadow-sm">
+            <button onClick={openDrawer} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
               + Add Patient
             </button>
           </div>
@@ -268,60 +223,46 @@ export default function PatientsPage() {
 
         {/* Table */}
         <div className="bg-white rounded-xl shadow overflow-hidden">
-          <table className="w-full min-w-[700px] text-sm">
-            <thead className="bg-gradient-to-r from-blue-600 to-blue-500 text-white">
+          <table className="w-full">
+            <thead className="bg-blue-600 text-white">
               <tr>
-                <th className="p-3 text-left">Patient</th>
-                <th className="p-3 text-left">ID</th>
+                <th className="p-3 text-left">Name</th>
+                <th className="p-3 text-left">Patient ID</th>
                 <th className="p-3 text-left">Phone</th>
                 <th className="p-3 text-left">Gender</th>
-                <th className="p-3 text-left">Blood</th>
                 <th className="p-3 text-left">Actions</th>
               </tr>
             </thead>
-
             <tbody>
               {filtered.map((p) => (
-                <tr key={p.id} className="hover:bg-slate-50 transition">
-                  <td className="p-3">
-                    <div className="font-medium">{p.name}</div>
-                    <div className="text-xs text-slate-500">{p.email || "-"}</div>
-                  </td>
-                  <td className="p-3">{p.id}</td>
-                  <td className="p-3">{p.phone}</td>
-                  <td className="p-3">{p.gender}</td>
-                  <td className="p-3">{p.bloodGroup || "-"}</td>
+                <tr key={p.id} className={`border-b ${p.active ? "hover:bg-slate-50" : "bg-slate-50"}`}>
+                  <td className={`p-3 ${p.active ? "text-slate-900" : "text-gray-400"}`}>{p.name}</td>
+                  <td className={`p-3 ${p.active ? "text-slate-900" : "text-gray-400"}`}>{p.id}</td>
+                  <td className={`p-3 ${p.active ? "text-slate-900" : "text-gray-400"}`}>{p.phone}</td>
+                  <td className={`p-3 ${p.active ? "text-slate-900" : "text-gray-400"}`}>{p.gender}</td>
                   <td className="p-3 flex gap-2">
                     <button
-                      title="View"
                       onClick={() => router.push(`/patients/${p.id}?mode=view`)}
-                      className="px-3 py-1 rounded-md bg-green-50 text-green-700 hover:bg-green-100 transition"
+                      className="px-3 py-1 rounded-md bg-green-50 text-green-700 hover:bg-green-100"
                     >
-                      <IconView />
+                      View
                     </button>
 
-                    <button
-                      title="Edit"
-                      onClick={() => router.push(`/patients/${p.id}?mode=edit`)}
-                      className="px-3 py-1 rounded-md bg-yellow-50 text-yellow-700 hover:bg-yellow-100 transition"
-                    >
-                      <IconEdit />
-                    </button>
-
-                    <button
-                      title="Delete"
-                      onClick={() => handleDelete(p.id)}
-                      className="px-3 py-1 rounded-md bg-red-50 text-red-700 hover:bg-red-100 transition"
-                    >
-                      <IconDelete />
-                    </button>
+                    {p.active && (
+                      <button
+                        onClick={() => handleRemove(p.id)}
+                        className="px-3 py-1 rounded-md bg-red-50 text-red-700 hover:bg-red-100"
+                      >
+                        Remove
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
 
               {filtered.length === 0 && (
                 <tr>
-                  <td className="p-6 text-center text-slate-500" colSpan={6}>
+                  <td className="p-6 text-center text-slate-500" colSpan={5}>
                     No patients found
                   </td>
                 </tr>
@@ -331,49 +272,56 @@ export default function PatientsPage() {
         </div>
       </main>
 
-      {/* Drawer (overlay + right panel) */}
+      {/* Drawer: Add patient (overlay + panel) */}
       {isDrawerOpen && (
-        <div className="fixed inset-0 z-50 pointer-events-auto">
-          {/* overlay */}
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={closeDrawer} />
+        <>
+          {/* overlay: blurred background, click to close */}
+          <div
+            className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
+            onClick={closeDrawer}
+          />
 
           {/* panel */}
           <aside
-            className={`absolute right-0 top-0 h-full w-full sm:w-[420px] bg-white shadow-2xl p-6 overflow-y-auto transform ${
-              drawerAnim === "in" ? "animate-bounceIn" : drawerAnim === "out" ? "animate-bounceOut" : ""
+            className={`fixed right-0 top-0 z-50 h-full w-[420px] bg-white shadow-2xl p-6 transform transition-transform duration-300 ${
+              drawerAnimating ? "translate-x-0" : "translate-x-full"
             }`}
             role="dialog"
             aria-modal="true"
+            onClick={(e) => e.stopPropagation()} // don't close when clicking inside
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-slate-800">Add New Patient</h3>
-              <button className="text-slate-500" onClick={closeDrawer} aria-label="Close">✕</button>
+              <button onClick={closeDrawer} className="text-slate-500">✕</button>
             </div>
 
             <form onSubmit={handleAddPatient} className="space-y-3">
               <div>
-                <label className="text-sm block mb-1">Full Name</label>
-                <input required className="w-full border rounded px-3 py-2" value={newPatient.name} onChange={(e) => setNewPatient({ ...newPatient, name: e.target.value })} />
+                <label className="block text-sm font-medium">Full Name</label>
+                <input className="w-full border rounded px-3 py-2" value={newPatient.name} onChange={(e) => setNewPatient((s) => ({ ...s, name: e.target.value }))} />
               </div>
 
               <div>
-                <label className="text-sm block mb-1">Email</label>
-                <input type="email" className="w-full border rounded px-3 py-2" value={newPatient.email} onChange={(e) => setNewPatient({ ...newPatient, email: e.target.value })} />
+                <label className="block text-sm font-medium">Email</label>
+                <input type="email" className="w-full border rounded px-3 py-2" value={newPatient.email} onChange={(e) => setNewPatient((s) => ({ ...s, email: e.target.value }))} />
               </div>
 
               <div>
-                <label className="text-sm block mb-1">Phone</label>
-                <input required className="w-full border rounded px-3 py-2" value={newPatient.phone} onChange={(e) => setNewPatient({ ...newPatient, phone: e.target.value })} />
+                <label className="block text-sm font-medium">Phone Number</label>
+                <input className="w-full border rounded px-3 py-2" value={newPatient.phone} onChange={(e) => setNewPatient((s) => ({ ...s, phone: e.target.value }))} />
               </div>
 
               <div>
-                <label className="text-sm block mb-1">Date of Birth</label>
-                <input type="date" className="w-full border rounded px-3 py-2" value={newPatient.dob} onChange={(e) => setNewPatient({ ...newPatient, dob: e.target.value })} />
+                <label className="block text-sm font-medium">Date of Birth</label>
+                <input type="date" className="w-full border rounded px-3 py-2" value={newPatient.dob} onChange={(e) => handleDobChange(e.target.value)} />
+                {newPatient.age !== "" && newPatient.age !== undefined && (
+                  <p className="text-sm text-slate-600 mt-1">Age: {newPatient.age} years</p>
+                )}
               </div>
 
               <div>
-                <label className="text-sm block mb-1">Gender</label>
-                <select required className="w-full border rounded px-3 py-2" value={newPatient.gender} onChange={(e) => setNewPatient({ ...newPatient, gender: e.target.value })}>
+                <label className="block text-sm font-medium">Gender</label>
+                <select className="w-full border rounded px-3 py-2" value={newPatient.gender} onChange={(e) => setNewPatient((s) => ({ ...s, gender: e.target.value }))}>
                   <option value="">Select</option>
                   <option>Male</option>
                   <option>Female</option>
@@ -382,48 +330,68 @@ export default function PatientsPage() {
               </div>
 
               <div>
-                <label className="text-sm block mb-1">Address</label>
-                <textarea className="w-full border rounded px-3 py-2" rows={3} value={newPatient.address} onChange={(e) => setNewPatient({ ...newPatient, address: e.target.value })} />
+                <label className="block text-sm font-medium">Address</label>
+                <textarea className="w-full border rounded px-3 py-2" rows={3} value={newPatient.address} onChange={(e) => setNewPatient((s) => ({ ...s, address: e.target.value }))} />
               </div>
 
-              <div>
-                <label className="text-sm block mb-1">Blood Group</label>
-                <select className="w-full border rounded px-3 py-2" value={newPatient.bloodGroup} onChange={(e) => setNewPatient({ ...newPatient, bloodGroup: e.target.value })}>
-                  <option value="">Select</option>
-                  <option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>O+</option><option>O-</option><option>AB+</option><option>AB-</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-sm block mb-1">Allergies</label>
-                <input className="w-full border rounded px-3 py-2" value={newPatient.allergies} onChange={(e) => setNewPatient({ ...newPatient, allergies: e.target.value })} />
-              </div>
-
-              <div className="flex justify-end gap-3 mt-4">
+              <div className="flex justify-end gap-3 mt-3">
                 <button type="button" onClick={closeDrawer} className="px-4 py-2 border rounded-md">Cancel</button>
                 <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-md">Save</button>
               </div>
             </form>
           </aside>
-        </div>
+        </>
       )}
 
-      {/* Animations */}
-      <style jsx global>{`
-        @keyframes bounceIn {
-          0% { transform: translateX(100%); opacity: 0; }
-          60% { transform: translateX(-10px); opacity: 1; }
-          80% { transform: translateX(6px); }
-          100% { transform: translateX(0); }
-        }
-        @keyframes bounceOut {
-          0% { transform: translateX(0); opacity: 1; }
-          20% { transform: translateX(-6px); }
-          100% { transform: translateX(110%); opacity: 0; }
-        }
-        .animate-bounceIn { animation: bounceIn 420ms cubic-bezier(.2,.9,.3,1) forwards; }
-        .animate-bounceOut { animation: bounceOut 360ms cubic-bezier(.2,.9,.3,1) forwards; }
-      `}</style>
+      {/* Filters Modal */}
+      {isFilterOpen && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={() => setIsFilterOpen(false)} />
+
+          <div className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[360px] bg-white rounded-xl p-6 shadow-lg transform transition-all duration-200">
+            <h3 className="text-lg font-semibold mb-4">Filter Patients</h3>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm">Gender</label>
+                <select value={filters.gender} onChange={(e) => setFilters((s) => ({ ...s, gender: e.target.value }))} className="w-full border rounded px-3 py-2">
+                  <option value="all">All Genders</option>
+                  <option>Male</option>
+                  <option>Female</option>
+                  <option>Other</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm">Age Group</label>
+                <select value={filters.age} onChange={(e) => setFilters((s) => ({ ...s, age: e.target.value }))} className="w-full border rounded px-3 py-2">
+                  <option value="all">All Ages</option>
+                  <option value="child">Child (&lt;13)</option>
+                  <option value="adult">Adult (13–59)</option>
+                  <option value="senior">Senior (60+)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm">Status</label>
+                <select value={filters.status} onChange={(e) => setFilters((s) => ({ ...s, status: e.target.value }))} className="w-full border rounded px-3 py-2">
+                  <option value="all">All Patients</option>
+                  <option value="active">Active Only</option>
+                  <option value="removed">Removed Only</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-between mt-5">
+              <button onClick={clearFilters} className="px-4 py-2 border rounded-md">Clear All</button>
+              <div className="flex gap-2">
+                <button onClick={() => setIsFilterOpen(false)} className="px-4 py-2 border rounded-md">Close</button>
+                <button onClick={() => setIsFilterOpen(false)} className="px-4 py-2 bg-blue-600 text-white rounded-md">Apply</button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

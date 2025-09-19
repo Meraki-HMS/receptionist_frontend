@@ -1,173 +1,237 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import Sidebar from "../../../components/Sidebar";
 
 export default function PatientProfile() {
-  const params = useParams();
+  const { id } = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const modeQuery = searchParams?.get("mode") || "view";
-  const id = params?.id;
+  const modeParam = searchParams.get("mode") || "view"; // default view
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [patient, setPatient] = useState(null);
-  const [editData, setEditData] = useState(null);
-  const [mode, setMode] = useState(modeQuery);
+  const [editMode, setEditMode] = useState(modeParam === "edit");
 
-  // load patient on mount (from localStorage)
+  // Load from localStorage
   useEffect(() => {
-    const raw = localStorage.getItem("patients");
-    const arr = raw ? JSON.parse(raw) : [];
-    const found = arr.find((p) => p.id === id);
-    if (!found) {
-      router.push("/patients");
+    const stored = JSON.parse(localStorage.getItem("patients")) || [];
+    const found = stored.find((p) => p.id === id);
+    if (found) setPatient(found);
+  }, [id]);
+
+  const persistPatient = (updatedPatient) => {
+    const stored = JSON.parse(localStorage.getItem("patients")) || [];
+    const updated = stored.map((p) => (p.id === id ? updatedPatient : p));
+    localStorage.setItem("patients", JSON.stringify(updated));
+    window.dispatchEvent(new Event("patientsUpdated"));
+    setPatient(updatedPatient);
+  };
+
+  // Validation
+  const validate = (p) => {
+    if (!p.name || p.name.trim().length === 0) return "Name required";
+    if (!p.phone || !/^\d{7,15}$/.test(p.phone.trim())) return "Valid phone required";
+    if (!p.dob) return "DOB required";
+    if (!p.gender) return "Gender required";
+    return null;
+  };
+
+  // Save handler
+  const handleSave = () => {
+    const err = validate(patient);
+    if (err) {
+      alert(err);
       return;
     }
-    setPatient(found);
-    setEditData({ ...found });
-  }, [id, router]);
-
-  useEffect(() => {
-    setMode(modeQuery);
-  }, [modeQuery]);
-
-  // input change
-  const handleChange = (e) => {
-    setEditData({ ...editData, [e.target.name]: e.target.value });
+    persistPatient({ ...patient, active: true });
+    alert("Patient updated successfully!");
+    setEditMode(false);
   };
 
-  // helper to write and notify
-  const writePatients = (arr) => {
-    localStorage.setItem("patients", JSON.stringify(arr));
-    window.dispatchEvent(new Event("patientsUpdated"));
+  // Remove handler (soft remove)
+  const handleRemove = () => {
+    if (!confirm("Remove this patient from active list? Data will still be saved.")) return;
+    const updated = { ...patient, active: false };
+    persistPatient(updated);
+    alert("Patient removed.");
+    router.push("/patients"); // back to list
   };
 
-  // Save edits (immediate write + notify)
-  const handleSave = () => {
-    const raw = localStorage.getItem("patients");
-    const arr = raw ? JSON.parse(raw) : [];
-    const updated = arr.map((p) => (p.id === id ? editData : p));
-    writePatients(updated);
-    // keep UI consistent then go back to list
-    router.push("/patients");
-  };
-
-  // Delete
-  const handleDelete = () => {
-    if (!confirm("Delete this patient?")) return;
-    const raw = localStorage.getItem("patients");
-    const arr = raw ? JSON.parse(raw) : [];
-    const updated = arr.filter((p) => p.id !== id);
-    writePatients(updated);
-    router.push("/patients");
+  // Age auto-calc
+  const handleDobChange = (val) => {
+    const today = new Date();
+    const birthDate = new Date(val);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
+    setPatient((s) => ({ ...s, dob: val, age }));
   };
 
   if (!patient) {
     return (
       <div className="flex h-screen">
         <Sidebar open={sidebarOpen} setOpen={setSidebarOpen} />
-        <main className="flex-1 flex items-center justify-center">
-          <p className="text-slate-500">Loading patient...</p>
+        <main className="flex-1 p-6">
+          <p className="text-slate-600">Patient not found.</p>
         </main>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-100">
       <Sidebar open={sidebarOpen} setOpen={setSidebarOpen} />
 
       <main className="flex-1 p-6 overflow-y-auto">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-between mb-6">
+        <div className="max-w-3xl mx-auto bg-white rounded-xl shadow p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold text-slate-800">
+              Patient Profile – {patient.name}
+            </h2>
+            <button
+              onClick={() => router.push("/patients")}
+              className="px-4 py-2 border rounded-md hover:bg-slate-50"
+            >
+              Back
+            </button>
+          </div>
+
+          {/* Details */}
+          <div className="space-y-4">
+            {/* Name */}
             <div>
-              <h1 className="text-2xl font-semibold text-slate-800">Patient Profile</h1>
-              <p className="text-sm text-slate-500">{patient.name}</p>
+              <label className="block text-sm font-medium">Full Name</label>
+              {editMode ? (
+                <input
+                  className="w-full border rounded px-3 py-2"
+                  value={patient.name}
+                  onChange={(e) => setPatient((s) => ({ ...s, name: e.target.value }))}
+                />
+              ) : (
+                <p className="text-slate-900">{patient.name}</p>
+              )}
             </div>
 
-            <div className="flex gap-2">
-              <button onClick={() => router.push("/patients")} className="px-3 py-2 border rounded-md">Back</button>
-
-              {mode === "view" ? (
-                <>
-                  <button onClick={() => router.push(`/patients/${id}?mode=edit`)} className="px-3 py-2 bg-yellow-100 text-yellow-700 rounded-md">Edit</button>
-                  <button onClick={handleDelete} className="px-3 py-2 bg-red-50 text-red-700 rounded-md">Delete</button>
-                </>
+            {/* Email */}
+            <div>
+              <label className="block text-sm font-medium">Email</label>
+              {editMode ? (
+                <input
+                  type="email"
+                  className="w-full border rounded px-3 py-2"
+                  value={patient.email}
+                  onChange={(e) => setPatient((s) => ({ ...s, email: e.target.value }))}
+                />
               ) : (
-                <button onClick={handleSave} className="px-3 py-2 bg-green-600 text-white rounded-md">Save</button>
+                <p className="text-slate-900">{patient.email || "—"}</p>
+              )}
+            </div>
+
+            {/* Phone */}
+            <div>
+              <label className="block text-sm font-medium">Phone</label>
+              {editMode ? (
+                <input
+                  className="w-full border rounded px-3 py-2"
+                  value={patient.phone}
+                  onChange={(e) => setPatient((s) => ({ ...s, phone: e.target.value }))}
+                />
+              ) : (
+                <p className="text-slate-900">{patient.phone}</p>
+              )}
+            </div>
+
+            {/* DOB + Age */}
+            <div>
+              <label className="block text-sm font-medium">Date of Birth</label>
+              {editMode ? (
+                <input
+                  type="date"
+                  className="w-full border rounded px-3 py-2"
+                  value={patient.dob}
+                  onChange={(e) => handleDobChange(e.target.value)}
+                />
+              ) : (
+                <p className="text-slate-900">{patient.dob}</p>
+              )}
+              {patient.age !== undefined && (
+                <p className="text-slate-600 text-sm mt-1">Age: {patient.age}</p>
+              )}
+            </div>
+
+            {/* Gender */}
+            <div>
+              <label className="block text-sm font-medium">Gender</label>
+              {editMode ? (
+                <select
+                  className="w-full border rounded px-3 py-2"
+                  value={patient.gender}
+                  onChange={(e) => setPatient((s) => ({ ...s, gender: e.target.value }))}
+                >
+                  <option value="">Select</option>
+                  <option>Male</option>
+                  <option>Female</option>
+                  <option>Other</option>
+                </select>
+              ) : (
+                <p className="text-slate-900">{patient.gender}</p>
+              )}
+            </div>
+
+            {/* Address */}
+            <div>
+              <label className="block text-sm font-medium">Address</label>
+              {editMode ? (
+                <textarea
+                  className="w-full border rounded px-3 py-2"
+                  rows={3}
+                  value={patient.address}
+                  onChange={(e) => setPatient((s) => ({ ...s, address: e.target.value }))}
+                />
+              ) : (
+                <p className="text-slate-900">{patient.address || "—"}</p>
               )}
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow p-6">
-            {mode === "view" ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <p className="text-sm font-medium">Full Name</p>
-                  <p className="text-slate-700">{patient.name}</p>
-
-                  <p className="text-sm font-medium mt-4">Email</p>
-                  <p className="text-slate-700">{patient.email || "-"}</p>
-
-                  <p className="text-sm font-medium mt-4">Phone</p>
-                  <p className="text-slate-700">{patient.phone}</p>
-
-                  <p className="text-sm font-medium mt-4">DOB</p>
-                  <p className="text-slate-700">{patient.dob || "-"}</p>
-                </div>
-
-                <div>
-                  <p className="text-sm font-medium">Gender</p>
-                  <p className="text-slate-700">{patient.gender || "-"}</p>
-
-                  <p className="text-sm font-medium mt-4">Address</p>
-                  <p className="text-slate-700">{patient.address || "-"}</p>
-
-                  <p className="text-sm font-medium mt-4">Blood Group</p>
-                  <p className="text-slate-700">{patient.bloodGroup || "-"}</p>
-
-                  <p className="text-sm font-medium mt-4">Allergies</p>
-                  <p className="text-slate-700">{patient.allergies || "-"}</p>
-                </div>
-              </div>
+          {/* Actions */}
+          <div className="flex justify-end gap-3 mt-6">
+            {editMode ? (
+              <>
+                <button
+                  onClick={() => setEditMode(false)}
+                  className="px-4 py-2 border rounded-md"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSave}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md"
+                >
+                  Save
+                </button>
+              </>
             ) : (
-              <form className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium">Full Name</label>
-                  <input name="name" className="w-full border rounded px-3 py-2" value={editData.name} onChange={handleChange} />
-
-                  <label className="block text-sm font-medium mt-3">Email</label>
-                  <input name="email" type="email" className="w-full border rounded px-3 py-2" value={editData.email || ""} onChange={handleChange} />
-
-                  <label className="block text-sm font-medium mt-3">Phone</label>
-                  <input name="phone" className="w-full border rounded px-3 py-2" value={editData.phone || ""} onChange={handleChange} />
-
-                  <label className="block text-sm font-medium mt-3">Date of Birth</label>
-                  <input name="dob" type="date" className="w-full border rounded px-3 py-2" value={editData.dob || ""} onChange={handleChange} />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium">Gender</label>
-                  <select name="gender" className="w-full border rounded px-3 py-2" value={editData.gender || ""} onChange={handleChange}>
-                    <option value="">Select</option>
-                    <option>Male</option><option>Female</option><option>Other</option>
-                  </select>
-
-                  <label className="block text-sm font-medium mt-3">Address</label>
-                  <textarea name="address" className="w-full border rounded px-3 py-2" value={editData.address || ""} onChange={handleChange} />
-
-                  <label className="block text-sm font-medium mt-3">Blood Group</label>
-                  <select name="bloodGroup" className="w-full border rounded px-3 py-2" value={editData.bloodGroup || ""} onChange={handleChange}>
-                    <option value="">Select</option>
-                    <option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>O+</option><option>O-</option><option>AB+</option><option>AB-</option>
-                  </select>
-
-                  <label className="block text-sm font-medium mt-3">Allergies</label>
-                  <input name="allergies" className="w-full border rounded px-3 py-2" value={editData.allergies || ""} onChange={handleChange} />
-                </div>
-              </form>
+              <>
+                {patient.active && (
+                  <button
+                    onClick={() => setEditMode(true)}
+                    className="px-4 py-2 bg-yellow-500 text-white rounded-md"
+                  >
+                    Edit
+                  </button>
+                )}
+                {patient.active && (
+                  <button
+                    onClick={handleRemove}
+                    className="px-4 py-2 bg-red-500 text-white rounded-md"
+                  >
+                    Remove
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>
