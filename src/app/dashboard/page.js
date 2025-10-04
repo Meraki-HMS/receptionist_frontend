@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "../../components/Sidebar";
-import DashboardCard from "../../components/DashboardCard";
+import DashboardCard from "../../components/doctor/common/DashboardCard";
 import BedChart from "../../components/BedChart";
 import UpcomingAppointments from "../../components/UpcomingAppointments";
 
@@ -147,30 +147,32 @@ export default function Home() {
             />
           </div>
 
-          {/* 🔹 Charts Section */}
+          {/* 🔹 Compact Charts Section */}
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 lg:gap-6">
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-200/60 p-4 lg:p-6">
-              <div className="flex items-center justify-between mb-4 lg:mb-6">
-                <h2 className="text-lg lg:text-xl font-semibold text-gray-800">Bed Occupancy</h2>
+            {/* Bed Occupancy - Compact */}
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-200/60 p-4 lg:p-5 min-h-[280px] flex flex-col">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-800">Bed Occupancy</h2>
                 <button className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
-                  View Details <i className="bi bi-arrow-right"></i>
+                  Details <i className="bi bi-arrow-right text-xs"></i>
                 </button>
               </div>
               <BedChart />
             </div>
 
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-200/60 p-4 lg:p-6">
-              <div className="flex items-center justify-between mb-4 lg:mb-6">
-                <h2 className="text-lg lg:text-xl font-semibold text-gray-800">Upcoming Appointments</h2>
+            {/* Upcoming Appointments - Compact */}
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-200/60 p-4 lg:p-5 min-h-[280px] flex flex-col">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-800">Upcoming Appointments</h2>
                 <button className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
-                  View All <i className="bi bi-arrow-right"></i>
+                  All <i className="bi bi-arrow-right text-xs"></i>
                 </button>
               </div>
               <UpcomingAppointments />
             </div>
           </div>
 
-          {/* 🔹 Quick Actions Footer */}
+          {/* 🔹 Quick Actions Footer 
           <div className="mt-6 lg:mt-8 bg-white/60 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-200/60 p-4 lg:p-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Quick Actions</h3>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 lg:gap-4">
@@ -186,7 +188,7 @@ export default function Home() {
                 </button>
               ))}
             </div>
-          </div>
+          </div> */}
         </div>
       </main>
     </div>

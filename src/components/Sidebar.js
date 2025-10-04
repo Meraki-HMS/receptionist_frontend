@@ -31,7 +31,7 @@ export default function Sidebar({ open, setOpen }) {
             <p className="text-xs text-gray-500">Management System</p>
           </div>
         </div>
-        <button
+         <button
           onClick={() => setOpen(!open)}
           className="p-2 rounded-lg hover:bg-gray-100/80 transition-colors duration-200 text-gray-500 hover:text-blue-600"
         >
