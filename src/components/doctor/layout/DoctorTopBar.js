@@ -1,7 +1,9 @@
 "use client";
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 
-export default function DoctorTopBar({ sidebarOpen, setSidebarOpen, user, activeModule }) {
+export default function DoctorTopBar({ sidebarOpen, setSidebarOpen, user }) {
+  const pathname = usePathname();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
@@ -29,7 +31,19 @@ export default function DoctorTopBar({ sidebarOpen, setSidebarOpen, user, active
             
             <div className="hidden md:block">
               <h1 className="text-2xl font-bold text-gray-800 capitalize">
-                {activeModule === "dashboard" ? "Doctor Dashboard" : activeModule.replace('-', ' ')}
+                {(() => {
+                  if (pathname === "/doctor/dashboard") return "Doctor Dashboard";
+                  if (pathname === "/doctor/patients") return "My Patients";
+                  if (pathname === "/doctor/appointments") return "Appointments";
+                  if (pathname === "/doctor/prescriptions") return "Prescriptions";
+                  if (pathname === "/doctor/lab-reports") return "Lab Reports";
+                  if (pathname === "/doctor/video-consult") return "Video Consult";
+                  if (pathname === "/doctor/diagnosis") return "Diagnosis";
+                  if (pathname === "/doctor/referrals") return "Referrals";
+                  if (pathname === "/doctor/discharge") return "Discharge";
+                  if (pathname === "/doctor/feedback") return "Feedback";
+                  return "Doctor Dashboard";
+                })()}
               </h1>
               <p className="text-sm text-gray-500">
                 {new Date().toLocaleDateString('en-US', { 

@@ -1,17 +1,21 @@
 "use client";
 
-export default function DoctorSidebar({ open, setOpen, activeModule, setActiveModule, user }) {
+import { usePathname, useRouter } from "next/navigation";
+
+export default function DoctorSidebar({ open, setOpen, user }) {
+  const router = useRouter();
+  const pathname = usePathname();
   const menuItems = [
-    { id: "dashboard", icon: "bi bi-speedometer2", label: "Dashboard" },
-    { id: "patients", icon: "bi bi-people-fill", label: "My Patients" },
-    { id: "appointments", icon: "bi bi-calendar-check", label: "Appointments" },
-    { id: "prescriptions", icon: "bi bi-file-medical", label: "Prescriptions" },
-    { id: "lab-reports", icon: "bi bi-clipboard-data", label: "Lab Reports" },
-    { id: "video-consult", icon: "bi bi-camera-video", label: "Video Consult" },
-    { id: "diagnosis", icon: "bi bi-journal-medical", label: "Diagnosis" },
-    { id: "referrals", icon: "bi bi-arrow-left-right", label: "Referrals" },
-    { id: "discharge", icon: "bi bi-file-earmark-text", label: "Discharge" },
-    { id: "feedback", icon: "bi bi-star", label: "Feedback" },
+    { id: "dashboard", icon: "bi bi-speedometer2", label: "Dashboard", route: "/doctor/dashboard" },
+    { id: "patients", icon: "bi bi-people-fill", label: "My Patients", route: "/doctor/patients" },
+    { id: "appointments", icon: "bi bi-calendar-check", label: "Appointments", route: "/doctor/appointments" },
+    { id: "prescriptions", icon: "bi bi-file-medical", label: "Prescriptions", route: "/doctor/prescriptions" },
+    { id: "lab-reports", icon: "bi bi-clipboard-data", label: "Lab Reports", route: "/doctor/lab-reports" },
+    { id: "video-consult", icon: "bi bi-camera-video", label: "Video Consult", route: "/doctor/video-consult" },
+    { id: "diagnosis", icon: "bi bi-journal-medical", label: "Diagnosis", route: "/doctor/diagnosis" },
+    { id: "referrals", icon: "bi bi-arrow-left-right", label: "Referrals", route: "/doctor/referrals" },
+    { id: "discharge", icon: "bi bi-file-earmark-text", label: "Discharge", route: "/doctor/discharge" },
+    { id: "feedback", icon: "bi bi-star", label: "Feedback", route: "/doctor/feedback" },
   ];
 
   return (
@@ -21,7 +25,7 @@ export default function DoctorSidebar({ open, setOpen, activeModule, setActiveMo
       transition-all duration-300 flex flex-col sticky top-0 shadow-xl
     `}>
       {/* Sidebar Header (remains fixed at the top) */}
-      <div className="flex items-center justify-between p-4 lg:p-6 border-b border-gray-200/60">
+      <div className="flex items-center p-4 lg:p-6 border-b border-gray-200/60">
         <div className={`flex items-center gap-3 transition-opacity ${open ? "opacity-100" : "opacity-0"}`}>
           <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg">
             <i className="bi bi-heart-pulse text-white text-xl"></i>
@@ -31,23 +35,18 @@ export default function DoctorSidebar({ open, setOpen, activeModule, setActiveMo
             <p className="text-xs text-gray-500">Medical Dashboard</p>
           </div>
         </div>
-        <button
-          onClick={() => setOpen(!open)}
-          className="p-2 rounded-lg hover:bg-gray-100/80 transition-colors duration-200 text-gray-500 hover:text-green-600"
-        >
-          <i className="bi bi-list text-xl"></i>
-        </button>
       </div>
 
       {/* Navigation Menu (now scrollable) */}
       {/* Key Change: Added 'flex-1' and 'overflow-y-auto' to this nav element */}
       <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
         {menuItems.map((item) => {
-          const isActive = activeModule === item.id;
+          // Highlight active item based on current pathname
+          const isActive = pathname === item.route;
           return (
             <button
               key={item.id}
-              onClick={() => setActiveModule(item.id)}
+              onClick={() => router.push(item.route)}
               className={`
                 w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group
                 ${isActive

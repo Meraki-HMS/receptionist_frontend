@@ -1,165 +1,234 @@
-"use client";
-import { useEffect, useState } from "react";
-// NOTE: Layout-related imports are removed.
-import PrescriptionForm from "../../../components/doctor/prescriptions/PrescriptionForm";
-import PrescriptionHistory from "../../../components/doctor/prescriptions/PrescriptionHistory";
+// File: src/app/doctor/prescriptions/page.js
 
-// Mock data for prescriptions
+"use client";
+import { useEffect, useState, useContext } from "react";
+import { DoctorModuleContext } from "../DoctorModuleContext";
+import PrescriptionForm from "@/components/doctor/prescriptions/PrescriptionForm";
+import PrescriptionHistory from "@/components/doctor/prescriptions/PrescriptionHistory";
+
+// UPDATED: Mock data with new fields
 const prescriptionsData = [
   {
     id: 1,
-    prescriptionId: "RX-001",
+    patientName: "John Doe",
     patientId: "P001",
-    patientName: "John Smith",
+    patientEmail: "john.doe@example.com",
+    prescriptionId: "RX-2024-001",
     date: "2024-01-15",
     status: "active",
-    diagnosis: "Hypertension Stage 2",
+    symptoms: ["Fever", "Headache", "Cough with phlegm"],
+    diagnosis: ["Viral Fever", "Upper Respiratory Infection"],
     medicines: [
       {
-        name: "Lisinopril",
-        dosage: "10mg",
-        frequency: "Once daily",
-        duration: "30 days",
-        instructions: "Take in the morning"
+        medicine_name: "Paracetamol 500mg",
+        dosage: "1 tablet",
+        frequency: "3 times a day",
+        duration: "5 days",
+        instructions: "After meals"
       },
       {
-        name: "Atorvastatin",
-        dosage: "20mg",
-        frequency: "Once daily",
-        duration: "30 days",
-        instructions: "Take at bedtime"
+        medicine_name: "Amoxicillin 500mg",
+        dosage: "1 capsule",
+        frequency: "Twice daily",
+        duration: "7 days",
+        instructions: "Complete full course"
       }
     ],
-    tests: ["Blood Pressure Monitoring", "Lipid Profile"],
-    advice: "Reduce salt intake, exercise regularly",
-    followUpDate: "2024-02-15"
+    tests: ["Complete Blood Count (CBC)", "X-Ray Chest"],
+    notes: "Take rest and drink plenty of fluids. Follow up if fever persists beyond 3 days.",
+    followUpDate: "2024-01-20",
+    doctorName: "Dr. Sarah Wilson"
   },
   {
     id: 2,
-    prescriptionId: "RX-002",
+    patientName: "Jane Smith",
     patientId: "P002",
-    patientName: "Maria Garcia",
-    date: "2024-01-14",
+    patientEmail: "jane.smith@example.com",
+    prescriptionId: "RX-2024-002",
+    date: "2024-01-16",
     status: "completed",
-    diagnosis: "Asthma with allergic rhinitis",
+    symptoms: ["Joint pain", "Swelling in knees", "Morning stiffness"],
+    diagnosis: ["Osteoarthritis", "Inflammation"],
     medicines: [
       {
-        name: "Salbutamol Inhaler",
-        dosage: "100mcg",
-        frequency: "As needed",
-        duration: "90 days",
-        instructions: "Use during asthma attacks"
+        medicine_name: "Ibuprofen 400mg",
+        dosage: "1 tablet",
+        frequency: "Twice daily",
+        duration: "10 days",
+        instructions: "With food"
       },
       {
-        name: "Fluticasone Nasal Spray",
-        dosage: "50mcg",
-        frequency: "Twice daily",
+        medicine_name: "Calcium + Vitamin D3",
+        dosage: "1 tablet",
+        frequency: "Once daily",
         duration: "30 days",
-        instructions: "One spray each nostril"
+        instructions: "Morning with milk"
       }
     ],
-    tests: ["Pulmonary Function Test"],
-    advice: "Avoid allergens, use humidifier",
-    followUpDate: "2024-02-14"
+    tests: ["Vitamin D Level", "RA Factor", "ESR Test"],
+    notes: "Avoid strenuous activities. Use hot compression for pain relief.",
+    followUpDate: "2024-02-16",
+    doctorName: "Dr. Sarah Wilson"
+  },
+  {
+    id: 3,
+    patientName: "Robert Johnson",
+    patientId: "P003",
+    patientEmail: "robert.j@example.com",
+    prescriptionId: "RX-2024-003",
+    date: "2024-01-17",
+    status: "active",
+    symptoms: ["High blood pressure", "Headache", "Dizziness"],
+    diagnosis: ["Hypertension Stage 1"],
+    medicines: [
+      {
+        medicine_name: "Lisinopril 10mg",
+        dosage: "1 tablet",
+        frequency: "Once daily",
+        duration: "30 days",
+        instructions: "Morning empty stomach"
+      }
+    ],
+    tests: ["Lipid Profile", "Kidney Function Test", "ECG"],
+    notes: "Monitor BP twice daily. Reduce salt intake. Regular exercise recommended.",
+    followUpDate: "2024-02-17",
+    doctorName: "Dr. Sarah Wilson"
   }
 ];
 
 export default function PrescriptionsPage() {
-  // NOTE: Layout-related state and hooks are removed.
   const [prescriptions, setPrescriptions] = useState([]);
-  const [activeTab, setActiveTab] = useState("history"); // history, new
+  const [activeTab, setActiveTab] = useState("history");
   const [selectedPrescription, setSelectedPrescription] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const { prescriptionContext, setPrescriptionContext, appointments, setAppointments } = useContext(DoctorModuleContext);
 
+  // On mount, restore prescriptionContext from localStorage if missing
   useEffect(() => {
-    setPrescriptions(prescriptionsData);
+    if (!prescriptionContext && typeof window !== 'undefined') {
+      const stored = localStorage.getItem('prescriptionContext');
+      if (stored) {
+        setPrescriptionContext(JSON.parse(stored));
+      }
+    }
+  }, [prescriptionContext, setPrescriptionContext]);
+
+  // Load prescriptions from localStorage or fallback to mock data
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('prescriptions');
+      if (stored) {
+        setPrescriptions(JSON.parse(stored));
+      } else {
+        localStorage.setItem('prescriptions', JSON.stringify(prescriptionsData));
+        setPrescriptions(prescriptionsData);
+      }
+    } else {
+      setPrescriptions(prescriptionsData);
+    }
   }, []);
 
+  // Save prescriptions to localStorage whenever they change
+  useEffect(() => {
+    if (typeof window !== 'undefined' && prescriptions.length > 0) {
+      localStorage.setItem('prescriptions', JSON.stringify(prescriptions));
+    }
+  }, [prescriptions]);
+
+  useEffect(() => {
+    // Always show PrescriptionForm if prescriptionContext is set and has patientEmail
+    if (prescriptionContext && prescriptionContext.patientEmail) {
+      setActiveTab('new');
+    }
+  }, [prescriptionContext]);
+
   const handleNewPrescription = (prescriptionData) => {
+    // Mark appointment as completed and persist
+    if (prescriptionContext && prescriptionContext.id) {
+      setAppointments(prev => {
+        const updated = prev.map(app =>
+          app.id === prescriptionContext.id ? { ...app, status: 'completed' } : app
+        );
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('appointments', JSON.stringify(updated));
+        }
+        return updated;
+      });
+    }
+    // Create prescription with patient data from context
     const newPrescription = {
-      id: prescriptions.length + 1,
-      prescriptionId: `RX-${String(prescriptions.length + 1).padStart(3, '0')}`,
-      ...prescriptionData,
-      date: new Date().toISOString().split('T')[0],
-      status: "active"
-    };
-    setPrescriptions(prev => [newPrescription, ...prev]);
+        id: prescriptions.length + 1,
+        patientName: prescriptionData.patientName,
+        patientEmail: prescriptionData.patientEmail,
+        prescriptionId: `RX-2024-${String(prescriptions.length + 1).padStart(3, '0')}`,
+        date: new Date().toISOString().split('T')[0],
+        status: "active",
+        symptoms: prescriptionData.symptoms,
+        diagnosis: prescriptionData.diagnosis,
+        medicines: prescriptionData.medicines,
+        tests: prescriptionData.tests,
+        notes: prescriptionData.notes,
+        followUpDate: prescriptionData.followUpDate,
+        doctorName: "Dr. Sarah Wilson"
+      };
+    setPrescriptions(prev => {
+      const updated = [newPrescription, ...prev];
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('prescriptions', JSON.stringify(updated));
+      }
+      return updated;
+    });
     setActiveTab("history");
-    
-    // Show success message
-    console.log("Prescription created:", newPrescription);
+    // Clear prescriptionContext after creation and remove from localStorage
+    setTimeout(() => {
+      if (setPrescriptionContext) setPrescriptionContext(null);
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('prescriptionContext');
+      }
+    }, 100);
+    alert("Prescription created successfully!");
   };
 
   const handlePrintPrescription = (prescription) => {
     console.log("Printing prescription:", prescription);
-    // PDF generation logic will be implemented
+    // Actual print functionality would be implemented here
   };
 
-  const filteredPrescriptions = prescriptions.filter(prescription =>
-    prescription.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    prescription.prescriptionId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    prescription.diagnosis.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredPrescriptions = prescriptions.filter(p =>
+    p.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    p.patientEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    p.diagnosis.some(d => d.toLowerCase().includes(searchTerm.toLowerCase()))
   );
-
-  // NOTE: Loading and auth checks are removed as they are handled by the layout.
 
   return (
     <>
       <main className="flex-1 p-4 lg:p-6 overflow-auto">
-        {/* Header Section */}
         <div className="mb-6 lg:mb-8">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h1 className="text-2xl lg:text-3xl font-bold text-gray-800">Prescriptions</h1>
-              <p className="text-gray-600 mt-2">
-                Create and manage patient prescriptions with medicine database
-              </p>
+              <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Prescriptions</h1>
+              <p className="text-gray-600 mt-2">Manage and create patient prescriptions</p>
             </div>
-            <button 
-              onClick={() => setActiveTab("new")}
-              className="mt-4 lg:mt-0 bg-green-600 text-white px-6 py-3 rounded-xl hover:bg-green-700 transition-colors font-medium flex items-center gap-2"
-            >
-              <i className="bi bi-plus-lg"></i>
-              New Prescription
-            </button>
+            <div className="mt-4 lg:mt-0">
+              <button
+                onClick={() => setActiveTab("new")}
+                className="bg-green-600 text-white px-6 py-3 rounded-xl hover:bg-green-700 transition-colors font-medium flex items-center gap-2"
+              >
+                <i className="bi bi-plus-lg"></i>
+                New Prescription
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-200">
-            <div className="text-2xl font-bold text-gray-800">{prescriptions.length}</div>
-            <div className="text-sm text-gray-500">Total Prescriptions</div>
-          </div>
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-200">
-            <div className="text-2xl font-bold text-green-600">
-              {prescriptions.filter(p => p.status === 'active').length}
-            </div>
-            <div className="text-sm text-gray-500">Active</div>
-          </div>
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-200">
-            <div className="text-2xl font-bold text-blue-600">
-              {prescriptions.filter(p => p.status === 'completed').length}
-            </div>
-            <div className="text-sm text-gray-500">Completed</div>
-          </div>
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-200">
-            <div className="text-2xl font-bold text-purple-600">
-              {prescriptions.reduce((total, p) => total + p.medicines.length, 0)}
-            </div>
-            <div className="text-sm text-gray-500">Medicines Prescribed</div>
-          </div>
-        </div>
-
-        {/* Tabs Navigation */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 mb-6">
           <div className="border-b border-gray-200">
             <nav className="flex">
               <button
                 onClick={() => setActiveTab("history")}
-                className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors ${
+                className={`px-6 py-4 font-medium border-b-2 transition-colors ${
                   activeTab === "history"
-                    ? "border-green-500 text-green-600"
+                    ? "border-green-600 text-green-600"
                     : "border-transparent text-gray-500 hover:text-gray-700"
                 }`}
               >
@@ -168,19 +237,17 @@ export default function PrescriptionsPage() {
               </button>
               <button
                 onClick={() => setActiveTab("new")}
-                className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors ${
+                className={`px-6 py-4 font-medium border-b-2 transition-colors ${
                   activeTab === "new"
-                    ? "border-green-500 text-green-600"
+                    ? "border-green-600 text-green-600"
                     : "border-transparent text-gray-500 hover:text-gray-700"
                 }`}
               >
-                <i className="bi bi-file-medical mr-2"></i>
+                <i className="bi bi-plus-circle mr-2"></i>
                 New Prescription
               </button>
             </nav>
           </div>
-
-          {/* Tab Content */}
           <div className="p-6">
             {activeTab === "history" && (
               <PrescriptionHistory
@@ -191,18 +258,21 @@ export default function PrescriptionsPage() {
                 onPrint={handlePrintPrescription}
               />
             )}
-
             {activeTab === "new" && (
-              <PrescriptionForm
-                onSubmit={handleNewPrescription}
-                onCancel={() => setActiveTab("history")}
-              />
+              prescriptionContext && prescriptionContext.patientEmail ? (
+                <PrescriptionForm
+                  initialPatientData={prescriptionContext}
+                  onSubmit={handleNewPrescription}
+                  onCancel={() => setActiveTab("history")}
+                />
+              ) : (
+                <div className="text-center py-12 text-red-600 font-semibold">No patient selected. Please start from an appointment.</div>
+              )
             )}
           </div>
         </div>
       </main>
 
-      {/* Prescription Detail Modal */}
       {selectedPrescription && (
         <PrescriptionDetailModal
           prescription={selectedPrescription}
@@ -214,8 +284,10 @@ export default function PrescriptionsPage() {
   );
 }
 
-// Prescription Detail Modal Component
+// UPDATED: PrescriptionDetailModal with new fields
 function PrescriptionDetailModal({ prescription, onClose, onPrint }) {
+  if (!prescription) return null;
+  
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
@@ -224,14 +296,14 @@ function PrescriptionDetailModal({ prescription, onClose, onPrint }) {
             <h2 className="text-2xl font-bold text-gray-800">Prescription Details</h2>
             <div className="flex items-center gap-2">
               <button 
-                onClick={() => onPrint(prescription)}
+                onClick={() => onPrint(prescription)} 
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center gap-2"
               >
                 <i className="bi bi-printer"></i>
                 Print
               </button>
               <button 
-                onClick={onClose}
+                onClick={onClose} 
                 className="text-gray-500 hover:text-gray-700 p-2 rounded-lg hover:bg-gray-100 transition-colors"
               >
                 <i className="bi bi-x-lg text-xl"></i>
@@ -239,89 +311,67 @@ function PrescriptionDetailModal({ prescription, onClose, onPrint }) {
             </div>
           </div>
         </div>
-
-        <div className="p-6">
-          {/* Header Info */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            <div className="bg-gray-50 rounded-xl p-4">
-              <h3 className="font-semibold text-gray-800 mb-2">Patient Information</h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Name:</span>
-                  <span className="font-medium">{prescription.patientName}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Patient ID:</span>
-                  <span className="font-medium">{prescription.patientId}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Date:</span>
-                  <span className="font-medium">
-                    {new Date(prescription.date).toLocaleDateString()}
-                  </span>
-                </div>
+        <div className="p-6 space-y-6">
+          {/* Patient Information */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-800 mb-3">Patient Information</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-600">Patient Name</label>
+                <p className="text-gray-900">{prescription.patientName}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-600">Email</label>
+                <p className="text-gray-900">{prescription.patientEmail}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-600">Prescription ID</label>
+                <p className="text-gray-900">{prescription.prescriptionId}</p>
               </div>
             </div>
+          </div>
 
-            <div className="bg-gray-50 rounded-xl p-4">
-              <h3 className="font-semibold text-gray-800 mb-2">Prescription Details</h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Prescription ID:</span>
-                  <span className="font-medium">{prescription.prescriptionId}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Status:</span>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    prescription.status === 'active' 
-                      ? 'bg-green-100 text-green-700' 
-                      : 'bg-blue-100 text-blue-700'
-                  }`}>
-                    {prescription.status}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Follow-up:</span>
-                  <span className="font-medium">
-                    {prescription.followUpDate 
-                      ? new Date(prescription.followUpDate).toLocaleDateString()
-                      : 'Not scheduled'
-                    }
-                  </span>
-                </div>
-              </div>
+          {/* Symptoms */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-800 mb-3">Symptoms</h3>
+            <div className="flex flex-wrap gap-2">
+              {prescription.symptoms.map((symptom, index) => (
+                <span key={index} className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-sm">
+                  {symptom}
+                </span>
+              ))}
             </div>
           </div>
 
           {/* Diagnosis */}
-          <div className="mb-6">
-            <h3 className="font-semibold text-gray-800 mb-3">Diagnosis</h3>
-            <div className="bg-blue-50 text-blue-800 px-4 py-3 rounded-lg">
-              {prescription.diagnosis}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-800 mb-3">Diagnosis</h3>
+            <div className="flex flex-wrap gap-2">
+              {prescription.diagnosis.map((diag, index) => (
+                <span key={index} className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-sm">
+                  {diag}
+                </span>
+              ))}
             </div>
           </div>
 
           {/* Medicines */}
-          <div className="mb-6">
-            <h3 className="font-semibold text-gray-800 mb-3">Medicines</h3>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-800 mb-3">Medicines</h3>
             <div className="space-y-3">
               {prescription.medicines.map((medicine, index) => (
-                <div key={index} className="bg-white border border-gray-200 rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-semibold text-gray-800">{medicine.name}</h4>
-                    <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-sm">
-                      {medicine.dosage}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm text-gray-600">
+                <div key={index} className="bg-gray-50 p-4 rounded-lg">
+                  <div className="flex justify-between items-start">
                     <div>
-                      <span className="font-medium">Frequency:</span> {medicine.frequency}
-                    </div>
-                    <div>
-                      <span className="font-medium">Duration:</span> {medicine.duration}
-                    </div>
-                    <div className="md:col-span-3">
-                      <span className="font-medium">Instructions:</span> {medicine.instructions}
+                      <h4 className="font-medium text-gray-900">{medicine.medicine_name}</h4>
+                      <p className="text-sm text-gray-600">
+                        {medicine.dosage} • {medicine.frequency} • {medicine.duration}
+                      </p>
+                      {medicine.instructions && (
+                        <p className="text-sm text-blue-600 mt-1">
+                          Instructions: {medicine.instructions}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -329,29 +379,37 @@ function PrescriptionDetailModal({ prescription, onClose, onPrint }) {
             </div>
           </div>
 
-          {/* Tests and Advice */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Tests */}
+          {/* Tests */}
+          {prescription.tests && prescription.tests.length > 0 && (
             <div>
-              <h3 className="font-semibold text-gray-800 mb-3">Recommended Tests</h3>
-              <div className="space-y-2">
+              <h3 className="text-lg font-semibold text-gray-800 mb-3">Recommended Tests</h3>
+              <div className="flex flex-wrap gap-2">
                 {prescription.tests.map((test, index) => (
-                  <div key={index} className="flex items-center gap-2 text-sm text-gray-600">
-                    <i className="bi bi-check-circle text-green-500"></i>
+                  <span key={index} className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm">
                     {test}
-                  </div>
+                  </span>
                 ))}
               </div>
             </div>
+          )}
 
-            {/* Medical Advice */}
+          {/* Notes */}
+          {prescription.notes && (
             <div>
-              <h3 className="font-semibold text-gray-800 mb-3">Medical Advice</h3>
-              <div className="bg-yellow-50 text-yellow-800 px-4 py-3 rounded-lg text-sm">
-                {prescription.advice}
-              </div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-3">Notes & Instructions</h3>
+              <p className="text-gray-700 bg-blue-50 p-4 rounded-lg">{prescription.notes}</p>
             </div>
-          </div>
+          )}
+
+          {/* Follow-up */}
+          {prescription.followUpDate && (
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-3">Follow-up</h3>
+              <p className="text-gray-700">
+                Scheduled for: {new Date(prescription.followUpDate).toLocaleDateString()}
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

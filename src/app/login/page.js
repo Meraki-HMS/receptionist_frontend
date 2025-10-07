@@ -14,6 +14,7 @@ export default function LoginPage() {
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [activeField, setActiveField] = useState("");
+  const [showRoleDropdown, setShowRoleDropdown] = useState(false);
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -29,36 +30,36 @@ export default function LoginPage() {
     return Object.keys(e).length === 0;
   };
 
-const handleSubmit = async (ev) => {
-  ev.preventDefault();
-  if (!validate()) return;
+  const handleSubmit = async (ev) => {
+    ev.preventDefault();
+    if (!validate()) return;
 
-  setIsLoading(true);
-  
-  await new Promise(resolve => setTimeout(resolve, 1500));
-  
-  const user = {
-    hospitalId: hospitalId.trim(),
-    role,
-    email: email.trim(),
-    loggedAt: new Date().toISOString(),
+    setIsLoading(true);
+    
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    const user = {
+      hospitalId: hospitalId.trim(),
+      role,
+      email: email.trim(),
+      loggedAt: new Date().toISOString(),
+    };
+    
+    // Store user data based on role
+    localStorage.setItem(`${role}LoggedIn`, "true");
+    localStorage.setItem("hmsUser", JSON.stringify(user));
+    
+    setIsLoading(false);
+    
+    // Redirect based on role
+    if (role === "doctor") {
+      router.push("/doctor/dashboard");
+    } else if (role === "receptionist") {
+      router.push("/dashboard");
+    } else {
+      router.push("/dashboard");
+    }
   };
-  
-  // Store user data based on role
-  localStorage.setItem(`${role}LoggedIn`, "true");
-  localStorage.setItem("hmsUser", JSON.stringify(user));
-  
-  setIsLoading(false);
-  
-  // Redirect based on role
-  if (role === "doctor") {
-    router.push("/doctor-dashboard"); // Fixed the typo here
-  } else if (role === "receptionist") {
-    router.push("/dashboard");
-  } else {
-    router.push("/dashboard");
-  }
-};
 
   const roles = [
     { value: "receptionist", label: "Receptionist", color: "from-blue-500 to-blue-600" },
@@ -66,6 +67,10 @@ const handleSubmit = async (ev) => {
     { value: "nurse", label: "Nurse", color: "from-purple-500 to-purple-600" },
     { value: "admin", label: "Administrator", color: "from-orange-500 to-orange-600" }
   ];
+
+  const getSelectedRole = () => {
+    return roles.find(r => r.value === role);
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-cyan-50 p-4 relative overflow-hidden">
@@ -215,27 +220,74 @@ const handleSubmit = async (ev) => {
                 )}
               </div>
 
-              {/* Role Selection */}
+              {/* Role Selection Dropdown */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">
                   Select Your Role
                   <span className="text-red-500 ml-1">*</span>
                 </label>
-                <div className="grid grid-cols-2 gap-3">
-                  {roles.map((roleItem) => (
-                    <button
-                      key={roleItem.value}
-                      type="button"
-                      onClick={() => setRole(roleItem.value)}
-                      className={`p-3 rounded-xl border-2 transition-all duration-300 ${
-                        role === roleItem.value
-                          ? `border-blue-500 bg-gradient-to-r ${roleItem.color} text-white shadow-lg`
-                          : "border-gray-200 bg-white hover:border-gray-300"
-                      }`}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowRoleDropdown(!showRoleDropdown)}
+                    className={`w-full px-4 py-3 rounded-xl border-2 transition-all duration-300 text-left ${
+                      errors.role 
+                        ? "border-red-500 bg-red-50" 
+                        : activeField === 'role'
+                        ? "border-blue-500 bg-white shadow-lg"
+                        : "border-gray-200 bg-white/80 hover:border-gray-300"
+                    } ${role ? '' : 'text-gray-500'}`}
+                  >
+                    {role ? (
+                      <div className="flex items-center justify-between">
+                        <span>{getSelectedRole()?.label}</span>
+                        <div className={`w-3 h-3 rounded-full bg-gradient-to-r ${getSelectedRole()?.color}`}></div>
+                      </div>
+                    ) : (
+                      "Select your role"
+                    )}
+                  </button>
+                  
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <svg 
+                      className={`w-5 h-5 text-gray-400 transition-transform duration-300 ${showRoleDropdown ? 'rotate-180' : ''}`} 
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
                     >
-                      <div className="text-sm font-medium text-center">{roleItem.label}</div>
-                    </button>
-                  ))}
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+
+                  {/* Dropdown Menu */}
+                  {showRoleDropdown && (
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-2xl z-20 overflow-hidden">
+                      {roles.map((roleItem) => (
+                        <button
+                          key={roleItem.value}
+                          type="button"
+                          onClick={() => {
+                            setRole(roleItem.value);
+                            setShowRoleDropdown(false);
+                          }}
+                          className={`w-full px-4 py-3 text-left transition-all duration-300 hover:bg-gray-50 ${
+                            role === roleItem.value 
+                              ? `bg-gradient-to-r ${roleItem.color} text-white` 
+                              : "text-gray-700"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium">{roleItem.label}</span>
+                            {role === roleItem.value && (
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 {errors.role && (
                   <p className="text-red-600 text-sm mt-2 flex items-center gap-2">
@@ -370,6 +422,14 @@ const handleSubmit = async (ev) => {
           </div>
         </div>
       </div>
+
+      {/* Close dropdown when clicking outside */}
+      {showRoleDropdown && (
+        <div 
+          className="fixed inset-0 z-0" 
+          onClick={() => setShowRoleDropdown(false)}
+        />
+      )}
     </div>
   );
 }

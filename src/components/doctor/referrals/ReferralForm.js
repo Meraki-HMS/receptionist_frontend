@@ -4,7 +4,7 @@ import { useState } from "react";
 import SpecialistSearch from "./SpecialistSearch";
 
 const initialFormData = {
-  patientId: "",
+  patientEmail: "",
   patientName: "",
   referredTo: null, // This will hold the specialist object
   reason: "",
@@ -18,7 +18,7 @@ export default function ReferralForm({ onSubmit, onCancel }) {
 
   const validateForm = () => {
     const newErrors = {};
-    if (!formData.patientId.trim()) newErrors.patientId = "Patient ID is required";
+  if (!formData.patientEmail.trim()) newErrors.patientEmail = "Patient email is required";
     if (!formData.patientName.trim()) newErrors.patientName = "Patient name is required";
     if (!formData.referredTo) newErrors.referredTo = "A specialist must be selected";
     if (!formData.reason.trim()) newErrors.reason = "Reason for referral is required";
@@ -31,7 +31,7 @@ export default function ReferralForm({ onSubmit, onCancel }) {
     if (!validateForm()) return;
 
     const submissionData = {
-      patientId: formData.patientId,
+      patientEmail: formData.patientEmail,
       patientName: formData.patientName,
       referredTo: formData.referredTo.name,
       specialty: formData.referredTo.specialty,
@@ -53,9 +53,9 @@ export default function ReferralForm({ onSubmit, onCancel }) {
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Patient Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Patient ID *</label>
-                    <input type="text" value={formData.patientId} onChange={(e) => setFormData(prev => ({ ...prev, patientId: e.target.value }))} className={`w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-green-500 ${errors.patientId ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter patient ID"/>
-                    {errors.patientId && <p className="text-red-600 text-sm mt-1">{errors.patientId}</p>}
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Patient email *</label>
+                    <input type="text" value={formData.patientEmail} onChange={(e) => setFormData(prev => ({ ...prev, patientEmail: e.target.value }))} className={`w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-green-500 ${errors.patientEmail ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter patient email"/>
+                    {errors.patientEmail && <p className="text-red-600 text-sm mt-1">{errors.patientEmail}</p>}
                 </div>
                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Patient Name *</label>

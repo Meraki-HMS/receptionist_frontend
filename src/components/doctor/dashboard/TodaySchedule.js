@@ -87,7 +87,7 @@ export default function TodaySchedule() {
                     className="text-green-600 hover:text-green-700 text-xs font-medium flex items-center gap-1 bg-green-50 px-2 py-1 rounded-lg"
                   >
                     <i className="bi bi-camera-video"></i>
-                    Join
+                    .
                   </button>
                 )}
               </div>
@@ -130,12 +130,9 @@ export default function TodaySchedule() {
       {/* Footer */}
       <div className="mt-4 pt-4 border-t border-gray-200/60">
         <div className="flex items-center justify-between text-sm">
-          <span className="text-gray-600">Next available slot:</span>
-          <span className="font-semibold text-green-600">03:00 PM Today</span>
+         {/* <span className="text-gray-600">Next available slot:</span>
+          <span className="font-semibold text-green-600">03:00 PM Today</span> */}
         </div>
-        <button className="w-full mt-3 bg-green-600 text-white py-2 rounded-xl hover:bg-green-700 transition-colors font-medium text-sm">
-          + Add New Appointment
-        </button>
       </div>
 
       {/* Appointment Detail Modal */}

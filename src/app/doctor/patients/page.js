@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 const patientsData = [
   {
     id: 1,
-    patientId: "P001",
+  patientEmail: "john.smith@email.com",
     name: "John Smith",
     age: 45,
     gender: "Male",
@@ -22,7 +22,7 @@ const patientsData = [
   },
   {
     id: 2,
-    patientId: "P002",
+  patientEmail: "maria.garcia@email.com",
     name: "Maria Garcia",
     age: 32,
     gender: "Female",
@@ -38,7 +38,7 @@ const patientsData = [
   },
   {
     id: 3,
-    patientId: "P003",
+  patientEmail: "robert.johnson@email.com",
     name: "Robert Johnson",
     age: 68,
     gender: "Male",
@@ -54,7 +54,7 @@ const patientsData = [
   },
   {
     id: 4,
-    patientId: "P004",
+  patientEmail: "sarah.chen@email.com",
     name: "Sarah Chen",
     age: 29,
     gender: "Female",
@@ -92,7 +92,7 @@ export default function PatientsPage() {
     if (searchTerm) {
       filtered = filtered.filter(patient =>
         patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        patient.patientId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  (patient.patientEmail && patient.patientEmail.toLowerCase().includes(searchTerm.toLowerCase())) ||
         patient.conditions.some(condition => 
           condition.toLowerCase().includes(searchTerm.toLowerCase())
         )
@@ -311,7 +311,7 @@ function PatientCard({ patient, onView, onConsult, onPrescribe }) {
             </div>
             <div>
               <h3 className="font-semibold text-gray-800">{patient.name}</h3>
-              <p className="text-sm text-gray-500">ID: {patient.patientId}</p>
+              <p className="text-sm text-gray-500">Email: {patient.patientEmail}</p>
             </div>
           </div>
           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -382,7 +382,7 @@ function PatientRow({ patient, onView, onConsult, onPrescribe }) {
           </div>
           <div>
             <div className="font-medium text-gray-900">{patient.name}</div>
-            <div className="text-sm text-gray-500">ID: {patient.patientId}</div>
+            <div className="text-sm text-gray-500">Email: {patient.patientEmail}</div>
           </div>
         </div>
       </td>
@@ -463,7 +463,7 @@ function PatientDetailModal({ patient, onClose, onConsult, onPrescribe }) {
                   <i className="bi bi-person text-green-600 text-3xl"></i>
                 </div>
                 <h3 className="text-xl font-bold text-gray-800">{patient.name}</h3>
-                <p className="text-gray-500">Patient ID: {patient.patientId}</p>
+                <p className="text-gray-500">Patient email: {patient.patientEmail}</p>
                 <div className="mt-4 space-y-2 text-sm text-gray-600">
                   <div className="flex justify-between">
                     <span>Age:</span>

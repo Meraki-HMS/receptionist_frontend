@@ -51,8 +51,8 @@ export default function PrintTemplate({ prescription, isPrintable = false }) {
               <span className="font-semibold text-gray-800">{prescription.patientName}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Patient ID:</span>
-              <span className="font-semibold text-gray-800">{prescription.patientId}</span>
+              <span className="text-gray-600">Patient Email:</span>
+              <span className="font-semibold text-gray-800">{prescription.patientEmail}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Date of Visit:</span>
